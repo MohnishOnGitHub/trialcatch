@@ -1,10 +1,9 @@
 /**
  * SMS fixtures for the parser tests.
  *
- * IMPORTANT: these are SYNTHETIC examples written to exercise the parser, not
- * copies of any real bank's format. TEAM TODO (Sprint 3): replace them with
- * real AutoPay SMS from our own phones, with names, account numbers and UMNs
- * masked, and add the expected result for each.
+ * REAL_FIXTURES are real SMS from the team's phones, with UMNs partly masked.
+ * SYNTHETIC_FIXTURES were written by hand to cover other cases; replace them
+ * with real SMS from other banks as we collect them (Sprint 3).
  */
 import type { ParsedSms } from '../../src/detection/parseSms';
 
@@ -14,7 +13,36 @@ export interface Fixture {
   expect: Partial<Pick<ParsedSms, 'isAutoPay' | 'kind' | 'merchantName' | 'amountPaise' | 'isMaxAmount' | 'cycle' | 'date' | 'umn' | 'upiApp'>>;
 }
 
-export const FIXTURES: Fixture[] = [
+export const REAL_FIXTURES: Fixture[] = [
+  {
+    name: 'HDFC Bank e-mandate pre debit, JioHotstar via PhonePe (real)',
+    sms: 'E-Mandate!\nRs.149.00 will be deducted on 02/10/26, 00:00:00\nFor JioHotstar mandate\nUMN 694axxxxxxxxxxxxxxxxxxxxxxxx179c@ybl\nMaintain Balance\n-HDFC Bank',
+    expect: {
+      isAutoPay: true,
+      kind: 'preDebit',
+      merchantName: 'JioHotstar',
+      amountPaise: 14900,
+      date: '2026-10-02',
+      umn: '694axxxxxxxxxxxxxxxxxxxxxxxx179c@ybl',
+      upiApp: 'phonepe',
+    },
+  },
+  {
+    name: 'HDFC Bank e-mandate pre debit, Google (YouTube Music) via PhonePe (real)',
+    sms: 'E-Mandate!\nRs.149.00 will be deducted on 03/10/26, 00:00:00\nFor Google mandate\nUMN 3b59xxxxxxxxxxxxxxxxxxxxxxxxce41@ybl\nMaintain Balance\n-HDFC Bank',
+    expect: {
+      isAutoPay: true,
+      kind: 'preDebit',
+      merchantName: 'Google',
+      amountPaise: 14900,
+      date: '2026-10-03',
+      umn: '3b59xxxxxxxxxxxxxxxxxxxxxxxxce41@ybl',
+      upiApp: 'phonepe',
+    },
+  },
+];
+
+const SYNTHETIC_FIXTURES: Fixture[] = [
   {
     name: 'mandate created, max amount, monthly, Google Pay handle',
     sms: 'AutoPay mandate created for SPOTIFY for max Rs 119.00, frequency monthly, on A/c XX1234. UMN abc123def@okaxis -Bank',
@@ -69,3 +97,5 @@ export const FIXTURES: Fixture[] = [
     expect: { isAutoPay: false, kind: 'unknown', amountPaise: null },
   },
 ];
+
+export const FIXTURES: Fixture[] = [...REAL_FIXTURES, ...SYNTHETIC_FIXTURES];

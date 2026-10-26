@@ -8,7 +8,7 @@
  * differ. Add real, masked SMS from the team to __tests__/detection/fixtures.ts
  * and extend the patterns in RULES until they parse.
  */
-import { findMerchantInText, type Merchant } from '../data/merchants';
+import { billerOptions, findMerchantInText, type Merchant } from '../data/merchants';
 import { toDay } from '../lib/dates';
 import { parseRupeesToPaise } from '../lib/money';
 import type { Cycle, DayString, UpiApp } from '../lib/types';
@@ -24,6 +24,11 @@ export interface ParsedSms {
   merchant: Merchant | null;
   /** Catalog name when we recognised the merchant, else our best reading of the text. */
   merchantName: string | null;
+  /**
+   * When the SMS names a company that bills several services ("Google" bills
+   * YouTube Premium, YouTube Music and Google One), the services to choose from.
+   */
+  billerOptions: Merchant[];
   amountPaise: number | null;
   /** True when the SMS says "max", "up to" or "limit", so the real charge may be lower. */
   isMaxAmount: boolean;
@@ -55,8 +60,10 @@ export const RULES = {
     { cycle: 'quarterly' as const, pattern: /\bquarterly\b/i },
     { cycle: 'yearly' as const, pattern: /\b(yearly|annually|annual)\b/i },
   ],
+  /** HDFC style: "For JioHotstar mandate". */
+  mandateFor: /\bfor\s+([A-Za-z0-9][A-Za-z0-9&.'\- ]{0,40}?)\s+(?:e-?)?mandate\b/i,
   merchantFallback:
-    /\b(?:for|to|towards|by|merchant|payee)\s+([A-Z][A-Za-z0-9&.'\- ]{1,40}?)(?=\s+(?:for|of|on|with|is|has|via|frequency|max|maximum|upto|up|amount|rs|inr|from|towards)\b|[.,;:]|\s*₹|$)/,
+    /\b(?:[Ff]or|[Tt]o|[Tt]owards|[Bb]y|[Mm]erchant|[Pp]ayee)\s+([A-Z][A-Za-z0-9&.'\- ]{1,40}?)(?=\s+(?:for|of|on|with|is|has|via|frequency|max|maximum|upto|up|amount|rs|inr|from|towards)\b|[.,;:]|\s*₹|$)/,
   upiHandles: [
     { app: 'gpay' as const, pattern: /@ok(axis|hdfcbank|icici|sbi)\b|\bgoogle ?pay\b|\bgpay\b/i },
     { app: 'phonepe' as const, pattern: /@(ybl|ibl|axl)\b|\bphonepe\b/i },
@@ -144,9 +151,10 @@ export function parseSms(raw: string, now: Date = new Date()): ParsedSms {
   const merchant = findMerchantInText(text);
   let merchantName = merchant?.name ?? null;
   if (!merchantName) {
-    const fallback = text.match(RULES.merchantFallback);
-    if (fallback && !/^(your|a\/c|ac|account|the)\b/i.test(fallback[1])) merchantName = titleCase(fallback[1]);
+    const named = text.match(RULES.mandateFor) ?? text.match(RULES.merchantFallback);
+    if (named && !/^(your|a\/c|ac|account|the|upi)\b/i.test(named[1])) merchantName = titleCase(named[1]);
   }
+  const options = merchant ? [] : billerOptions(merchantName);
 
   const { amountPaise, isMaxAmount } = detectAmount(text);
   const cycle = detectCycle(text);
@@ -173,6 +181,7 @@ export function parseSms(raw: string, now: Date = new Date()): ParsedSms {
     kind: isAutoPay ? detectKind(text) : 'unknown',
     merchant,
     merchantName,
+    billerOptions: options,
     amountPaise,
     isMaxAmount,
     cycle,

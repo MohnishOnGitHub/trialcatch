@@ -8,11 +8,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DayPicker } from '@/components/DayPicker';
 import { Button, Card, Chip, Header, Icon, Label, Pill, Txt } from '@/components/ui';
 import { hasPastedSms, recordPastedSms } from '@/db/repo';
+import { findExisting, updateFor } from '@/detection/match';
 import { parseSms, type ParsedSms } from '@/detection/parseSms';
-import { addCycle, addDays, longDay, toDay } from '@/lib/dates';
+import { addCycle, addDays, rollForward, shortDay, toDay } from '@/lib/dates';
 import { hashText } from '@/lib/hash';
 import { parseRupeesToPaise } from '@/lib/money';
-import type { Cycle, NewSubscription, Subscription, UpiApp } from '@/lib/types';
+import type { Cycle, NewSubscription, UpiApp } from '@/lib/types';
 import { UPI_APP_CHOICES, UPI_SHORT_NAME } from '@/lib/upi';
 import { useAppStore } from '@/store/useAppStore';
 import { colors, fonts } from '@/theme';
@@ -26,30 +27,6 @@ const KIND_LABEL: Record<ParsedSms['kind'], string> = {
   revoked: 'Mandate cancelled',
   unknown: 'AutoPay SMS',
 };
-
-/** What saving will do when this SMS is about something we already track. */
-function updateFor(existing: Subscription, parsed: ParsedSms): { label: string; next: NewSubscription } | null {
-  const today = toDay(new Date());
-  switch (parsed.kind) {
-    case 'revoked':
-      return { label: `Mark ${existing.name} as cancelled`, next: { ...existing, status: 'cancelled' } };
-    case 'preDebit':
-      if (!parsed.date) return null;
-      return {
-        label: `Set next charge to ${longDay(parsed.date)}`,
-        next: { ...existing, nextChargeAt: parsed.date, trialEndAt: existing.status === 'trial' ? parsed.date : existing.trialEndAt },
-      };
-    case 'debited': {
-      const paidOn = parsed.date ?? today;
-      return {
-        label: `Record the payment; next charge ${longDay(addCycle(paidOn, existing.cycle))}`,
-        next: { ...existing, status: 'active', trialEndAt: null, nextChargeAt: addCycle(paidOn, existing.cycle) },
-      };
-    }
-    default:
-      return null;
-  }
-}
 
 export default function PasteSms() {
   const db = useSQLiteContext();
@@ -67,10 +44,16 @@ export default function PasteSms() {
   const [isTrial, setIsTrial] = useState(true);
   const [day, setDay] = useState(addDays(today, 7));
   const [duplicateHash, setDuplicateHash] = useState<string | null>(null);
+  const [pickedMerchantId, setPickedMerchantId] = useState<string | null>(null);
+  const [saveAsNew, setSaveAsNew] = useState(false);
 
   const parsed = useMemo(() => (text.trim() ? parseSms(text) : null), [text]);
-  const existing = parsed?.umn ? subscriptions.find((s) => s.umn === parsed.umn) : undefined;
+  const finalName = name ?? parsed?.merchantName ?? '';
+  const existing = parsed && !saveAsNew ? findExisting(subscriptions, parsed, finalName) : undefined;
   const pendingUpdate = existing && parsed ? updateFor(existing, parsed) : null;
+  // Bank SMS often arrive days before we paste them; move a past charge date to the next one.
+  const oldDate =
+    parsed && (parsed.kind === 'preDebit' || parsed.kind === 'debited') && parsed.date && parsed.date < today ? parsed.date : null;
   const duplicate = !!text.trim() && duplicateHash === hashText(text);
 
   // Warn when this exact SMS was pasted before.
@@ -89,13 +72,16 @@ export default function PasteSms() {
     setAmount(null);
     setCycle(null);
     setUpiApp(null);
+    setPickedMerchantId(null);
+    setSaveAsNew(false);
     const next = value.trim() ? parseSms(value) : null;
+    const nextCycle = next?.cycle ?? 'monthly';
     if (next?.kind === 'preDebit' && next.date) {
       setIsTrial(false);
-      setDay(next.date);
+      setDay(rollForward(next.date, nextCycle, today));
     } else if (next?.kind === 'debited') {
       setIsTrial(false);
-      setDay(addCycle(next.date ?? today, next.cycle ?? 'monthly'));
+      setDay(rollForward(addCycle(next.date ?? today, nextCycle), nextCycle, today));
     } else {
       setIsTrial(true);
       setDay(addDays(today, 7));
@@ -111,7 +97,6 @@ export default function PasteSms() {
     changeText(value);
   };
 
-  const finalName = name ?? parsed?.merchantName ?? '';
   const finalAmount = amount ?? (parsed?.amountPaise != null ? String(parsed.amountPaise / 100) : '');
   const finalCycle = cycle ?? parsed?.cycle ?? 'monthly';
   const finalUpi = upiApp ?? parsed?.upiApp ?? 'other';
@@ -132,7 +117,7 @@ export default function PasteSms() {
     if (amountPaise === null || amountPaise <= 0) return Alert.alert('How much will it charge?', 'Type the amount, like 119.');
     const sub: NewSubscription = {
       name: finalName.trim(),
-      merchantId: parsed.merchant && parsed.merchant.name === finalName.trim() ? parsed.merchant.id : null,
+      merchantId: pickedMerchantId ?? (parsed.merchant && parsed.merchant.name === finalName.trim() ? parsed.merchant.id : null),
       amountPaise,
       maxAmountPaise: parsed.isMaxAmount ? parsed.amountPaise : null,
       cycle: finalCycle,
@@ -210,6 +195,9 @@ export default function PasteSms() {
                 <Pill label={KIND_LABEL[parsed.kind]} />
               </View>
               <Txt color={colors.body}>{pendingUpdate.label}.</Txt>
+              {!existing.umn ? (
+                <Button title="It’s a different one, save as new" variant="ghost" height={40} onPress={() => setSaveAsNew(true)} />
+              ) : null}
             </Card>
           ) : null}
 
@@ -230,8 +218,37 @@ export default function PasteSms() {
               </View>
 
               <Field label="App" unsure={unsure.has('merchant') && name === null}>
-                <TextInput value={finalName} onChangeText={setName} placeholder="App name" placeholderTextColor={colors.muted} style={styles.inlineInput} />
+                <TextInput
+                  value={finalName}
+                  onChangeText={(t) => {
+                    setName(t);
+                    setPickedMerchantId(null);
+                  }}
+                  placeholder="App name"
+                  placeholderTextColor={colors.muted}
+                  style={styles.inlineInput}
+                />
               </Field>
+              {parsed.billerOptions.length > 0 ? (
+                <View style={{ gap: 8, paddingBottom: 10 }}>
+                  <Txt size={13} color={colors.amberText}>
+                    {parsed.merchantName} bills more than one service. Which one is it?
+                  </Txt>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                    {parsed.billerOptions.map((m) => (
+                      <Chip
+                        key={m.id}
+                        label={m.name}
+                        selected={pickedMerchantId === m.id}
+                        onPress={() => {
+                          setName(m.name);
+                          setPickedMerchantId(m.id);
+                        }}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
               <Field label={parsed.isMaxAmount ? 'Amount (up to)' : 'Amount'} unsure={unsure.has('amount') && amount === null}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
                   <Txt weight="bold">₹</Txt>
@@ -268,6 +285,11 @@ export default function PasteSms() {
                   {isTrial && parsed.kind === 'mandateCreated' ? <Pill tone="amber" label="Not in SMS, please pick" /> : null}
                 </View>
                 <DayPicker value={day} onChange={setDay} />
+                {!isTrial && oldDate ? (
+                  <Txt size={12} color={colors.muted}>
+                    This SMS was for {shortDay(oldDate)}, which has passed, so we moved it to the next charge.
+                  </Txt>
+                ) : null}
               </View>
 
               <View style={styles.block}>

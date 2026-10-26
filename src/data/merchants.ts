@@ -20,7 +20,8 @@ export const MERCHANTS: Merchant[] = [
   { id: 'jiohotstar', name: 'JioHotstar', aliases: ['JIOHOTSTAR', 'HOTSTAR'], category: 'video', usualPricePaise: null },
   { id: 'sonyliv', name: 'SonyLIV', aliases: ['SONYLIV', 'SONY LIV'], category: 'video', usualPricePaise: null },
   { id: 'zee5', name: 'ZEE5', aliases: ['ZEE5'], category: 'video', usualPricePaise: null },
-  { id: 'youtube', name: 'YouTube Premium', aliases: ['YOUTUBE'], category: 'video', usualPricePaise: null },
+  { id: 'youtube', name: 'YouTube Premium', aliases: ['YOUTUBE', 'YOUTUBE PREMIUM'], category: 'video', usualPricePaise: null },
+  { id: 'youtubemusic', name: 'YouTube Music', aliases: ['YOUTUBE MUSIC', 'YT MUSIC', 'YTMUSIC'], category: 'music', usualPricePaise: null },
   { id: 'spotify', name: 'Spotify Premium', aliases: ['SPOTIFY'], category: 'music', usualPricePaise: null },
   { id: 'jiosaavn', name: 'JioSaavn Pro', aliases: ['JIOSAAVN', 'SAAVN'], category: 'music', usualPricePaise: null },
   { id: 'applemusic', name: 'Apple Music', aliases: ['APPLE MUSIC'], category: 'music', usualPricePaise: null },
@@ -62,6 +63,22 @@ export function findMerchantInText(text: string): Merchant | null {
     }
   }
   return best?.merchant ?? null;
+}
+
+/**
+ * Companies whose name appears in the SMS instead of the service. Real HDFC
+ * SMS say "For Google mandate" for YouTube Music, so we ask which one it is.
+ */
+const BILLERS: Record<string, string[]> = {
+  GOOGLE: ['youtube', 'youtubemusic', 'googleone'],
+  APPLE: ['applemusic', 'icloud'],
+  AMAZON: ['prime', 'audible', 'kindle'],
+};
+
+export function billerOptions(name: string | null): Merchant[] {
+  if (!name) return [];
+  const ids = BILLERS[name.trim().toUpperCase()] ?? [];
+  return ids.map((id) => MERCHANTS.find((m) => m.id === id)).filter((m): m is Merchant => !!m);
 }
 
 export function merchantById(id: string | null): Merchant | null {

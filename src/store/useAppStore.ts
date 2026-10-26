@@ -27,6 +27,11 @@ interface AppState {
   resetAll: () => Promise<void>;
 }
 
+/** Never store a charge date in the past: roll it to the next one. */
+function upToDate(s: NewSubscription): NewSubscription {
+  return bringUpToDate({ ...s, id: 0, createdAt: '' }) ?? s;
+}
+
 function requireDb(db: SQLiteDatabase | null): SQLiteDatabase {
   if (!db) throw new Error('Database not ready yet');
   return db;
@@ -60,13 +65,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   add: async (s) => {
-    const id = await repo.insertSubscription(requireDb(get().db), s);
+    const id = await repo.insertSubscription(requireDb(get().db), upToDate(s));
     await get().refresh();
     return id;
   },
 
   update: async (id, s) => {
-    await repo.updateSubscription(requireDb(get().db), id, s);
+    await repo.updateSubscription(requireDb(get().db), id, upToDate(s));
     await get().refresh();
   },
 

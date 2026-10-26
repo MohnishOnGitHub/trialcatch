@@ -1,5 +1,5 @@
 import { parseSms, parseSmsDate } from '../../src/detection/parseSms';
-import { FIXTURES } from './fixtures';
+import { FIXTURES, REAL_FIXTURES } from './fixtures';
 
 const NOW = new Date(2026, 9, 26); // 26 Oct 2026
 
@@ -28,7 +28,17 @@ describe('parseSms details', () => {
   });
 
   it('flags an unknown merchant as unsure', () => {
-    expect(parseSms(FIXTURES[4].sms, NOW).unsure).toContain('merchant');
+    const acme = FIXTURES.find((f) => f.expect.merchantName === 'Acme Notes')!;
+    expect(parseSms(acme.sms, NOW).unsure).toContain('merchant');
+  });
+
+  it('offers Google services to choose from when the SMS only says Google', () => {
+    const options = parseSms(REAL_FIXTURES[1].sms, NOW).billerOptions.map((m) => m.name);
+    expect(options).toEqual(['YouTube Premium', 'YouTube Music', 'Google One']);
+  });
+
+  it('offers no choices when the merchant is recognised', () => {
+    expect(parseSms(REAL_FIXTURES[0].sms, NOW).billerOptions).toEqual([]);
   });
 });
 

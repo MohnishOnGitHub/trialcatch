@@ -69,7 +69,7 @@ Install new libraries with `npx expo install <name>`, not `npm install`, so vers
 
 ## Team TODOs
 
-- [ ] **Real SMS fixtures (Sprint 3):** the SMS in `__tests__/detection/fixtures.ts` are synthetic. Replace them with real AutoPay SMS from our phones (mask names, account numbers and UMNs) and fix the parser until they pass.
+- [ ] **Real SMS fixtures (Sprint 3):** HDFC Bank e-mandate SMS are in `__tests__/detection/fixtures.ts` and pass. Add real AutoPay SMS from other banks on our phones (mask names, account numbers and UMNs) and fix the parser until they pass.
 - [ ] **Merchant prices:** fill `usualPricePaise` in `src/data/merchants.ts` from each app's current Indian pricing, and add SMS aliases we see in real messages.
 - [ ] **UPI app links (Sprint 2):** check the URL schemes in `src/lib/upi.ts` open GPay, PhonePe and Paytm on a real iPhone and Android; also check the cancel steps match each app.
 - [ ] **Sharing with EAS Update:** create a free Expo organization, add every teammate, then follow [Expo's EAS Update guide](https://docs.expo.dev/eas-update/getting-started/) so everyone can open the latest version in Expo Go without a laptop running.
