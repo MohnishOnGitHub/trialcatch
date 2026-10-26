@@ -88,7 +88,7 @@ export default function CancelGuide() {
               </View>
               <View style={{ flex: 1, gap: 4 }}>
                 <Txt weight="bold" size={15}>
-                  {step.title}
+                  {step.title.replace('{name}', sub.name)}
                 </Txt>
                 <Txt size={13} color={colors.muted}>
                   {step.detail}

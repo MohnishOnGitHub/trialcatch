@@ -12,7 +12,7 @@ interface UpiAppInfo {
    */
   schemes: string[];
   androidPackage: string | null;
-  /** Steps shown on the cancel guide. Keep them short; wording differs between app versions. */
+  /** Steps shown on the cancel guide. `{name}` is replaced with the subscription's name. */
   steps: { title: string; detail: string }[];
 }
 
@@ -25,7 +25,7 @@ export const UPI_APPS: Record<UpiApp, UpiAppInfo> = {
     steps: [
       { title: 'Open Google Pay and go to your profile', detail: 'Tap your profile photo' },
       { title: 'Find the AutoPay section', detail: 'It may be called AutoPay or Mandates' },
-      { title: 'Pick the subscription and cancel', detail: 'Confirm with your UPI PIN inside Google Pay' },
+      { title: 'Find {name} and cancel it', detail: 'Confirm with your UPI PIN inside Google Pay' },
     ],
   },
   phonepe: {
@@ -33,10 +33,11 @@ export const UPI_APPS: Record<UpiApp, UpiAppInfo> = {
     name: 'PhonePe',
     schemes: ['phonepe://'],
     androidPackage: 'com.phonepe.app',
+    // Checked on a real iPhone, Oct 2026.
     steps: [
-      { title: 'Open PhonePe and go to your profile', detail: 'Tap your profile icon' },
-      { title: 'Find the AutoPay section', detail: 'It may be called AutoPay or Mandates' },
-      { title: 'Pick the subscription and cancel', detail: 'Confirm with your UPI PIN inside PhonePe' },
+      { title: 'Tap your profile picture', detail: 'Top left of the PhonePe home screen' },
+      { title: 'Scroll down to Payment Settings, then tap AutoPay', detail: 'All your AutoPay mandates are listed here' },
+      { title: 'Find {name} and cancel it', detail: 'Confirm with your UPI PIN inside PhonePe' },
     ],
   },
   paytm: {
@@ -47,7 +48,7 @@ export const UPI_APPS: Record<UpiApp, UpiAppInfo> = {
     steps: [
       { title: 'Open Paytm and search for "AutoPay"', detail: 'Use the search bar on the home screen' },
       { title: 'Open your active AutoPay list', detail: 'It may be called Automatic Payments or Mandates' },
-      { title: 'Pick the subscription and cancel', detail: 'Confirm with your UPI PIN inside Paytm' },
+      { title: 'Find {name} and cancel it', detail: 'Confirm with your UPI PIN inside Paytm' },
     ],
   },
   other: {
@@ -58,7 +59,7 @@ export const UPI_APPS: Record<UpiApp, UpiAppInfo> = {
     steps: [
       { title: 'Open the UPI app you paid with', detail: 'The one you used when you started the trial' },
       { title: 'Find AutoPay or Mandates', detail: 'Usually in your profile or settings' },
-      { title: 'Pick the subscription and cancel', detail: 'Confirm with your UPI PIN inside that app' },
+      { title: 'Find {name} and cancel it', detail: 'Confirm with your UPI PIN inside that app' },
     ],
   },
 };
