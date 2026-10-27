@@ -257,7 +257,7 @@ export default function PasteSms() {
               </Field>
               {parsed.umn ? (
                 <Field label="Mandate ID (UMN)">
-                  <Txt weight="semibold" size={13}>
+                  <Txt weight="semibold" size={13} numberOfLines={1} ellipsizeMode="middle" style={{ flexShrink: 1, textAlign: 'right' }}>
                     {parsed.umn}
                   </Txt>
                 </Field>

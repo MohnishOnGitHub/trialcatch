@@ -171,7 +171,13 @@ export function Row({ label, value, last }: { label: string; value: ReactNode; l
   return (
     <View style={[styles.row, !last && { borderBottomWidth: 1, borderBottomColor: colors.divider }]}>
       <Txt color={colors.muted}>{label}</Txt>
-      {typeof value === 'string' ? <Txt weight="semibold">{value}</Txt> : value}
+      {typeof value === 'string' ? (
+        <Txt weight="semibold" numberOfLines={1} ellipsizeMode="middle" style={{ flexShrink: 1, textAlign: 'right' }}>
+          {value}
+        </Txt>
+      ) : (
+        value
+      )}
     </View>
   );
 }
